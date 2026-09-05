@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Estatísticas — Football Scanner AI</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:14px;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:20px;align-items:center;}
+nav .logo{color:var(--green);font-weight:bold;font-size:16px;margin-right:20px;}
+nav a{color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:4px;}
+nav a:hover,nav a.active{background:var(--bg3);color:var(--text);}
+.container{padding:20px;max-width:1200px;margin:0 auto;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:16px;}
+table{width:100%;border-collapse:collapse;}
+th{color:var(--text2);font-size:11px;text-transform:uppercase;padding:8px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:10px 8px;border-bottom:1px solid var(--border);}
+h2{font-size:18px;margin-bottom:16px;}
+.note{background:#3a2d00;border:1px solid var(--yellow);border-radius:6px;padding:10px;font-size:12px;color:var(--yellow);margin-bottom:16px;}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/">Dashboard</a><a href="/matches">Partidas</a>
+  <a href="/rules">Regras</a><a href="/stats" class="active">Estatísticas</a>
+  <a href="/backtest">Backtest</a><a href="/config">Configurações</a>
+</nav>
+<div class="container">
+  <h2 style="margin-top:16px">📈 Estatísticas do Sistema</h2>
+  <div class="note">
+    ⚠️ As estatísticas abaixo representam hipóteses observadas.
+    Nenhuma regra é uma certeza — são padrões estatísticos.
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:12px;color:var(--text2);font-size:12px;text-transform:uppercase">Status do Sistema</h3>
+    <div id="sys-stats" style="color:var(--text2)">Carregando...</div>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:12px;color:var(--text2);font-size:12px;text-transform:uppercase">Regras — Resumo</h3>
+    <table>
+      <thead><tr>
+        <th>Código</th><th>Nome</th><th>Categoria</th><th>Status</th><th>Prioridade</th>
+      </tr></thead>
+      <tbody id="rules-tbody"><tr><td colspan="5" style="color:var(--text2)">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-bottom:8px;color:var(--text2);font-size:12px;text-transform:uppercase">Alertas Recentes</h3>
+    <table>
+      <thead><tr>
+        <th>Regra</th><th>Partida</th><th>Liga</th><th>Min</th><th>Placar</th><th>Hora</th>
+      </tr></thead>
+      <tbody id="alerts-tbody"><tr><td colspan="6" style="color:var(--text2)">Carregando...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+async function loadStats() {
+  const [statsR, rulesR, alertsR] = await Promise.all([
+    fetch('/api/stats'), fetch('/api/rules/'), fetch('/api/alerts/?include_dismissed=true')
+  ]);
+  const stats = await statsR.json();
+  const rules = await rulesR.json();
+  const alerts = await alertsR.json();
+
+  document.getElementById('sys-stats').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+      <div><div style="color:var(--text2);font-size:11px">Provider</div><div style="color:var(--green)">${stats.provider}</div></div>
+      <div><div style="color:var(--text2);font-size:11px">Avaliações</div><div style="color:var(--blue)">${stats.total_evaluations}</div></div>
+      <div><div style="color:var(--text2);font-size:11px">Total Alertas</div><div style="color:var(--yellow)">${stats.total_alerts_generated}</div></div>
+      <div><div style="color:var(--text2);font-size:11px">Partidas Vivas</div><div>${stats.live_matches}</div></div>
+      <div><div style="color:var(--text2);font-size:11px">Intervalo</div><div>${stats.interval_seconds}s</div></div>
+      <div><div style="color:var(--text2);font-size:11px">Última Atualização</div><div>${stats.last_update ? new Date(stats.last_update).toLocaleTimeString('pt-BR') : '—'}</div></div>
+    </div>`;
+
+  const CAT = {cards:'Cartões',corners:'Escanteios',reversal:'Virada',two_legged:'Ida/Volta'};
+  document.getElementById('rules-tbody').innerHTML = rules.rules.map(r => `
+    <tr>
+      <td style="font-family:monospace;color:var(--green)">${r.rule_code}</td>
+      <td>${r.name}</td>
+      <td style="color:var(--text2)">${CAT[r.category?.value || r.category] || r.category}</td>
+      <td>${r.is_active ? '<span style="color:var(--green)">✅ Ativa</span>' : '<span style="color:var(--red)">❌ Inativa</span>'}</td>
+      <td style="color:var(--yellow)">${r.priority}/10</td>
+    </tr>`).join('');
+
+  document.getElementById('alerts-tbody').innerHTML = (alerts.alerts || []).slice(0,20).map(a => `
+    <tr>
+      <td style="font-family:monospace;color:var(--green)">${a.rule_code}</td>
+      <td>${a.home_team} x ${a.away_team}</td>
+      <td style="color:var(--text2)">${a.league}</td>
+      <td style="color:var(--green)">${a.minute}'</td>
+      <td>${a.score}</td>
+      <td style="color:var(--text2)">${new Date(a.created_at).toLocaleTimeString('pt-BR')}</td>
+    </tr>`).join('') || '<tr><td colspan="6" style="color:var(--text2)">Sem alertas registrados</td></tr>';
+}
+
+loadStats();
+setInterval(loadStats, 20000);
+</script>
+</body>
+</html>

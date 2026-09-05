@@ -1,0 +1,68 @@
+# ⚽ Football Scanner AI - Quick Start Card
+
+## 🚀 Primeira Vez (Setup Inicial)
+
+```
+1. Duplo-clique em: setup.bat
+   (Instala tudo automaticamente)
+   
+2. Espere terminar (pode levar alguns minutos)
+
+3. Quando terminar, clique em qualquer tecla
+```
+
+## ▶️ Iniciar o Sistema (Próximas Vezes)
+
+### Terminal 1 (Backend):
+```
+1. Duplo-clique em: start_backend.bat
+2. Deixe a janela aberta
+```
+
+### Terminal 2 (Frontend):
+```
+1. Duplo-clique em: start_frontend.bat
+2. Espere aparecer "Ready in X.Xs"
+```
+
+## 🌐 Acessar
+
+```
+Abra seu navegador e vá para:
+
+http://localhost:3000
+```
+
+## 📊 O que você verá
+
+- **Dashboard** — Partidas ao vivo e alertas
+- **Matches** — Detalhes completos das partidas
+- **Rules** — Ativar/desativar as 5 regras
+- **Alerts** — Alertas em tempo real
+- **Stats** — Gráficos e estatísticas
+
+## ⏹️ Para Parar
+
+```
+Terminal 1 (Backend):  Ctrl+C
+Terminal 2 (Frontend): Ctrl+C
+
+Feche as janelas
+```
+
+## ⚠️ Erros Comuns
+
+| Erro | Solução |
+|------|---------|
+| "python não é reconhecido" | Reinstale Python e marque "Add to PATH" |
+| "node não é reconhecido" | Reinstale Node.js |
+| Porta 8000 em uso | Edite `.env`: `APP_PORT=8001` |
+| Porta 3000 em uso | Edite `frontend-react/.env.local`: `PORT=3001` |
+
+## 📚 Documentação Completa
+
+Abra: `INSTALACAO_WINDOWS.md`
+
+---
+
+**Pronto! Aproveite seu Football Scanner AI! ⚽**

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Scanner AI</title>
+<style>
+:root {
+  --bg: #0d1117; --bg2: #161b22; --bg3: #21262d;
+  --border: #30363d; --text: #e6edf3; --text2: #8b949e;
+  --green: #3fb950; --yellow: #d29922; --red: #f85149;
+  --blue: #58a6ff; --orange: #fb8500; --purple: #bc8cff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', monospace; font-size: 14px; }
+nav { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 20px; align-items: center; }
+nav .logo { color: var(--green); font-weight: bold; font-size: 16px; margin-right: 20px; }
+nav a { color: var(--text2); text-decoration: none; padding: 5px 10px; border-radius: 4px; }
+nav a:hover, nav a.active { background: var(--bg3); color: var(--text); }
+.container { padding: 20px; max-width: 1400px; margin: 0 auto; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.grid-2 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 16px; }
+.card h3 { color: var(--text2); font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
+.stat-val { font-size: 28px; font-weight: bold; color: var(--text); }
+.stat-val.green { color: var(--green); }
+.stat-val.yellow { color: var(--yellow); }
+.stat-val.red { color: var(--red); }
+.stat-val.blue { color: var(--blue); }
+table { width: 100%; border-collapse: collapse; }
+th { color: var(--text2); font-size: 11px; text-transform: uppercase; padding: 8px; text-align: left; border-bottom: 1px solid var(--border); }
+td { padding: 10px 8px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+tr:hover td { background: var(--bg3); }
+.badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; }
+.badge-green { background: #1a3a1a; color: var(--green); }
+.badge-yellow { background: #3a2d00; color: var(--yellow); }
+.badge-red { background: #3a1010; color: var(--red); }
+.badge-blue { background: #0d2040; color: var(--blue); }
+.badge-purple { background: #2a1a3a; color: var(--purple); }
+.live-dot { width: 8px; height: 8px; background: var(--red); border-radius: 50%; display: inline-block; animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.alert-item { border-left: 3px solid var(--yellow); padding: 10px 12px; margin-bottom: 8px; background: var(--bg3); border-radius: 0 4px 4px 0; }
+.alert-title { font-weight: bold; font-size: 13px; color: var(--text); }
+.alert-msg { font-size: 12px; color: var(--text2); margin-top: 4px; }
+.alert-meta { font-size: 11px; color: var(--text2); margin-top: 6px; }
+.alert-item.priority-9 { border-left-color: var(--red); }
+.alert-item.priority-7 { border-left-color: var(--yellow); }
+.alert-item.priority-6 { border-left-color: var(--blue); }
+.btn { padding: 6px 12px; border-radius: 4px; border: none; cursor: pointer; font-size: 12px; }
+.btn-sm { padding: 3px 8px; font-size: 11px; }
+.btn-dismiss { background: var(--bg3); color: var(--text2); border: 1px solid var(--border); }
+.btn-dismiss:hover { background: var(--border); }
+#status-bar { background: var(--bg3); border-top: 1px solid var(--border); padding: 6px 20px; font-size: 11px; color: var(--text2); display: flex; justify-content: space-between; position: fixed; bottom: 0; width: 100%; }
+.score-box { font-family: monospace; font-weight: bold; font-size: 15px; background: var(--bg3); padding: 4px 10px; border-radius: 4px; }
+.minute { color: var(--green); font-size: 12px; }
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/" class="active">Dashboard</a>
+  <a href="/matches">Partidas</a>
+  <a href="/rules">Regras</a>
+  <a href="/stats">Estatísticas</a>
+  <a href="/backtest">Backtest</a>
+  <a href="/config">Configurações</a>
+</nav>
+
+<div class="container" style="padding-bottom:40px">
+  <!-- Stats Row -->
+  <div class="grid-4" style="margin-top:16px" id="stats-row">
+    <div class="card"><h3>Partidas ao Vivo</h3><div class="stat-val green" id="stat-live">--</div></div>
+    <div class="card"><h3>Alertas Ativos</h3><div class="stat-val yellow" id="stat-alerts">--</div></div>
+    <div class="card"><h3>Regras Ativas</h3><div class="stat-val blue" id="stat-rules">--</div></div>
+    <div class="card"><h3>Avaliações Totais</h3><div class="stat-val" id="stat-evals">--</div></div>
+  </div>
+
+  <div class="grid-2">
+    <!-- Live Matches -->
+    <div class="card">
+      <h3 style="margin-bottom:12px">Jogos ao Vivo <span class="live-dot" style="margin-left:6px"></span></h3>
+      <table>
+        <thead><tr>
+          <th>Partida</th><th>Liga</th><th>Placar</th><th>Min</th><th>Alertas</th>
+        </tr></thead>
+        <tbody id="matches-body">
+          <tr><td colspan="5" style="color:var(--text2);text-align:center;padding:20px">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Active Alerts -->
+    <div class="card">
+      <h3 style="margin-bottom:12px">Alertas Ativos</h3>
+      <div id="alerts-list">
+        <div style="color:var(--text2);text-align:center;padding:20px">Carregando...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="status-bar">
+  <span id="status-left">Inicializando...</span>
+  <span id="status-right">Football Scanner AI v1.0.0</span>
+</div>
+
+<script>
+const RULE_COLORS = {
+  RULE_001: 'yellow', RULE_002: 'blue',
+  RULE_003: 'blue', RULE_004: 'purple', RULE_005: 'red',
+};
+
+async function fetchStats() {
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    document.getElementById('stat-live').textContent = d.live_matches;
+    document.getElementById('stat-alerts').textContent = d.active_alerts;
+    document.getElementById('stat-rules').textContent = d.active_rules;
+    document.getElementById('stat-evals').textContent = d.total_evaluations;
+    document.getElementById('status-left').textContent =
+      `Provider: ${d.provider} | Intervalo: ${d.interval_seconds}s | Última atualização: ${d.last_update ? new Date(d.last_update).toLocaleTimeString('pt-BR') : 'aguardando'}`;
+  } catch(e) {}
+}
+
+async function fetchMatches() {
+  try {
+    const r = await fetch('/api/matches/live');
+    const d = await r.json();
+    const tbody = document.getElementById('matches-body');
+    if (!d.matches || d.matches.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text2);text-align:center;padding:20px">Nenhuma partida ao vivo</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.matches.map(m => {
+      const badges = m.alert_rules.map(r =>
+        `<span class="badge badge-${RULE_COLORS[r] || 'yellow'}">${r}</span>`
+      ).join(' ');
+      return `<tr>
+        <td><strong>${m.home_team}</strong> vs <strong>${m.away_team}</strong></td>
+        <td style="color:var(--text2);font-size:12px">${m.league}</td>
+        <td><span class="score-box">${m.home_score} - ${m.away_score}</span></td>
+        <td><span class="minute">${m.minute}'</span></td>
+        <td>${badges || '<span style="color:var(--text2)">—</span>'}</td>
+      </tr>`;
+    }).join('');
+  } catch(e) {}
+}
+
+async function fetchAlerts() {
+  try {
+    const r = await fetch('/api/alerts/');
+    const d = await r.json();
+    const list = document.getElementById('alerts-list');
+    if (!d.alerts || d.alerts.length === 0) {
+      list.innerHTML = '<div style="color:var(--text2);text-align:center;padding:20px">Sem alertas ativos</div>';
+      return;
+    }
+    list.innerHTML = d.alerts.slice(0, 10).map(a => `
+      <div class="alert-item priority-${a.priority}" id="alert-${a.id}">
+        <div class="alert-title">${a.title}</div>
+        <div class="alert-msg">${a.message.substring(0, 120)}...</div>
+        <div class="alert-meta">
+          <span>${a.league}</span> · <span>${a.minute}'</span> · <span>${a.score}</span>
+          <button class="btn btn-sm btn-dismiss" onclick="dismissAlert(${a.id})" style="float:right">Dispensar</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {}
+}
+
+async function dismissAlert(id) {
+  await fetch(`/api/alerts/${id}/dismiss`, {method:'POST'});
+  document.getElementById(`alert-${id}`)?.remove();
+}
+
+async function refresh() {
+  await Promise.all([fetchStats(), fetchMatches(), fetchAlerts()]);
+}
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

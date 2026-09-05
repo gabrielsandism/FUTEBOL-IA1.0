@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Configurações — Football Scanner AI</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:14px;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:20px;align-items:center;}
+nav .logo{color:var(--green);font-weight:bold;font-size:16px;margin-right:20px;}
+nav a{color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:4px;}
+nav a:hover,nav a.active{background:var(--bg3);color:var(--text);}
+.container{padding:20px;max-width:1100px;margin:0 auto;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:20px;margin-bottom:20px;}
+h2{font-size:18px;margin-bottom:4px;}
+h3{font-size:14px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:14px;}
+.form-row{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+input[type=text],input[type=number],select{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:4px;font-size:13px;}
+input[type=text]{width:200px;}
+.btn{padding:7px 16px;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:bold;}
+.btn-add{background:var(--green);color:#000;}
+.btn-add:hover{opacity:0.85;}
+.btn-del{background:#3a1010;color:var(--red);border:1px solid var(--red);}
+.btn-del:hover{background:var(--red);color:#000;}
+.btn-toggle{background:var(--bg3);color:var(--text2);border:1px solid var(--border);}
+.btn-toggle:hover{background:var(--border);}
+table{width:100%;border-collapse:collapse;}
+th{color:var(--text2);font-size:11px;text-transform:uppercase;padding:8px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:9px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
+tr:hover td{background:var(--bg3);}
+.dot-active{color:var(--green);}
+.dot-inactive{color:var(--red);}
+.tabs{display:flex;gap:0;margin-bottom:0;border-bottom:1px solid var(--border);}
+.tab{padding:10px 24px;cursor:pointer;color:var(--text2);border-bottom:2px solid transparent;font-size:13px;}
+.tab.active{color:var(--green);border-bottom-color:var(--green);}
+.tab-content{display:none;padding-top:20px;}
+.tab-content.active{display:block;}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/">Dashboard</a><a href="/matches">Partidas</a>
+  <a href="/rules">Regras</a><a href="/stats">Estatísticas</a>
+  <a href="/backtest">Backtest</a><a href="/config" class="active">Configurações</a>
+</nav>
+<div class="container">
+  <h2 style="margin-top:16px;margin-bottom:16px">⚙️ Configurações</h2>
+
+  <div class="card" style="padding:0;">
+    <div class="tabs">
+      <div class="tab active" onclick="showTab('leagues')">🏆 Ligas Importantes</div>
+      <div class="tab" onclick="showTab('teams')">⭐ Times de Elite</div>
+    </div>
+
+    <!-- LEAGUES TAB -->
+    <div id="tab-leagues" class="tab-content active" style="padding:20px;">
+      <h3>Ligas Importantes (usadas nas regras)</h3>
+      <div class="form-row">
+        <input type="text" id="league-name" placeholder="Nome da liga">
+        <input type="text" id="league-country" placeholder="País">
+        <input type="number" id="league-division" value="1" min="1" max="5" style="width:70px" title="Divisão">
+        <button class="btn btn-add" onclick="addLeague()">+ Adicionar</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Liga</th><th>País</th><th>Divisão</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="leagues-tbody"><tr><td colspan="6" style="color:var(--text2)">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+
+    <!-- TEAMS TAB -->
+    <div id="tab-teams" class="tab-content" style="padding:20px;">
+      <h3>Times de Elite (usados nas regras)</h3>
+      <div class="form-row">
+        <input type="text" id="team-name" placeholder="Nome do time">
+        <input type="text" id="team-country" placeholder="País">
+        <input type="text" id="team-league" placeholder="Liga">
+        <button class="btn btn-add" onclick="addTeam()">+ Adicionar</button>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Time</th><th>País</th><th>Liga</th><th>Status</th><th>Ações</th></tr></thead>
+        <tbody id="teams-tbody"><tr><td colspan="6" style="color:var(--text2)">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['leagues','teams'][i] === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(`tab-${name}`).classList.add('active');
+}
+
+async function loadLeagues() {
+  const r = await fetch('/api/config/important-leagues');
+  const d = await r.json();
+  document.getElementById('leagues-tbody').innerHTML = d.leagues.map(l => `
+    <tr>
+      <td style="color:var(--text2)">${l.id}</td>
+      <td><strong>${l.name}</strong></td>
+      <td style="color:var(--text2)">${l.country || '—'}</td>
+      <td style="color:var(--blue)">${l.division}ª</td>
+      <td class="${l.is_active ? 'dot-active' : 'dot-inactive'}">${l.is_active ? '● Ativa' : '○ Inativa'}</td>
+      <td>
+        <button class="btn btn-toggle btn-sm" onclick="toggleLeague(${l.id})">Toggle</button>
+        <button class="btn btn-del btn-sm" onclick="deleteLeague(${l.id})" style="margin-left:4px">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function loadTeams() {
+  const r = await fetch('/api/config/elite-teams');
+  const d = await r.json();
+  document.getElementById('teams-tbody').innerHTML = d.teams.map(t => `
+    <tr>
+      <td style="color:var(--text2)">${t.id}</td>
+      <td><strong>${t.name}</strong></td>
+      <td style="color:var(--text2)">${t.country || '—'}</td>
+      <td style="color:var(--text2)">${t.league || '—'}</td>
+      <td class="${t.is_active ? 'dot-active' : 'dot-inactive'}">${t.is_active ? '● Ativo' : '○ Inativo'}</td>
+      <td>
+        <button class="btn btn-toggle btn-sm" onclick="toggleTeam(${t.id})">Toggle</button>
+        <button class="btn btn-del btn-sm" onclick="deleteTeam(${t.id})" style="margin-left:4px">✕</button>
+      </td>
+    </tr>`).join('');
+}
+
+async function addLeague() {
+  const name = document.getElementById('league-name').value.trim();
+  if (!name) return alert('Informe o nome da liga');
+  await fetch('/api/config/important-leagues', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name, country: document.getElementById('league-country').value,
+      division: parseInt(document.getElementById('league-division').value) || 1
+    })
+  });
+  document.getElementById('league-name').value = '';
+  loadLeagues();
+}
+
+async function addTeam() {
+  const name = document.getElementById('team-name').value.trim();
+  if (!name) return alert('Informe o nome do time');
+  await fetch('/api/config/elite-teams', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      name, country: document.getElementById('team-country').value,
+      league: document.getElementById('team-league').value
+    })
+  });
+  document.getElementById('team-name').value = '';
+  loadTeams();
+}
+
+async function toggleLeague(id) {
+  await fetch(`/api/config/important-leagues/${id}/toggle`, {method:'PATCH'});
+  loadLeagues();
+}
+async function deleteLeague(id) {
+  if (!confirm('Remover liga?')) return;
+  await fetch(`/api/config/important-leagues/${id}`, {method:'DELETE'});
+  loadLeagues();
+}
+async function toggleTeam(id) {
+  await fetch(`/api/config/elite-teams/${id}/toggle`, {method:'PATCH'});
+  loadTeams();
+}
+async function deleteTeam(id) {
+  if (!confirm('Remover time?')) return;
+  await fetch(`/api/config/elite-teams/${id}`, {method:'DELETE'});
+  loadTeams();
+}
+
+loadLeagues(); loadTeams();
+</script>
+</body>
+</html>

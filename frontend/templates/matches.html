@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Partidas — Football Scanner AI</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;--purple:#bc8cff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:14px;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:20px;align-items:center;}
+nav .logo{color:var(--green);font-weight:bold;font-size:16px;margin-right:20px;}
+nav a{color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:4px;}
+nav a:hover,nav a.active{background:var(--bg3);color:var(--text);}
+.container{padding:20px;max-width:1200px;margin:0 auto;}
+.match-card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:16px;margin-bottom:12px;}
+.match-card:hover{border-color:var(--blue);cursor:pointer;}
+.match-head{display:flex;justify-content:space-between;align-items:center;}
+.teams{font-size:16px;font-weight:bold;}
+.vs{color:var(--text2);margin:0 10px;}
+.score{font-family:monospace;font-size:22px;font-weight:bold;background:var(--bg3);padding:4px 14px;border-radius:4px;}
+.league{font-size:12px;color:var(--text2);margin-top:4px;}
+.minute{color:var(--green);font-size:13px;}
+.live-dot{width:8px;height:8px;background:var(--red);border-radius:50%;display:inline-block;animation:pulse 1.5s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-left:4px;}
+.badge-rule001{background:#3a2d00;color:var(--yellow);}
+.badge-rule002,.badge-rule003{background:#0d2040;color:var(--blue);}
+.badge-rule004{background:#2a1a3a;color:var(--purple);}
+.badge-rule005{background:#3a1010;color:var(--red);}
+h2{font-size:18px;margin-bottom:16px;}
+.match-detail{display:none;margin-top:12px;border-top:1px solid var(--border);padding-top:12px;}
+.match-detail.open{display:block;}
+.stats-grid{display:grid;grid-template-columns:1fr auto 1fr;gap:4px;margin-bottom:12px;}
+.stat-row{display:contents;}
+.stat-home,.stat-away{padding:4px 8px;font-size:13px;}
+.stat-home{text-align:right;}
+.stat-label{text-align:center;color:var(--text2);font-size:11px;padding:4px 16px;}
+.alerts-mini{margin-top:8px;}
+.alert-mini{background:var(--bg3);border-left:3px solid var(--yellow);padding:8px;margin-bottom:6px;border-radius:0 4px 4px 0;font-size:12px;}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/">Dashboard</a><a href="/matches" class="active">Partidas</a>
+  <a href="/rules">Regras</a><a href="/stats">Estatísticas</a>
+  <a href="/backtest">Backtest</a><a href="/config">Configurações</a>
+</nav>
+<div class="container">
+  <h2 style="margin-top:16px"><span class="live-dot"></span> Partidas ao Vivo</h2>
+  <div id="matches-list"><p style="color:var(--text2)">Carregando...</p></div>
+</div>
+
+<script>
+const BADGE_MAP = {RULE_001:'rule001',RULE_002:'rule002',RULE_003:'rule003',RULE_004:'rule004',RULE_005:'rule005'};
+
+function toggleDetail(id) {
+  document.getElementById(`detail-${id}`).classList.toggle('open');
+}
+
+async function loadMatches() {
+  const r = await fetch('/api/matches/live');
+  const d = await r.json();
+  const list = document.getElementById('matches-list');
+  if (!d.matches?.length) {
+    list.innerHTML = '<p style="color:var(--text2)">Nenhuma partida ao vivo</p>';
+    return;
+  }
+  list.innerHTML = d.matches.map(m => {
+    const badges = m.alert_rules.map(r =>
+      `<span class="badge badge-${BADGE_MAP[r] || 'rule001'}">${r}</span>`
+    ).join('');
+    return `
+      <div class="match-card" onclick="loadDetail(${m.match_id})">
+        <div class="match-head">
+          <div>
+            <div class="teams">${m.home_team} <span class="vs">vs</span> ${m.away_team}</div>
+            <div class="league">🏆 ${m.league} · <span class="minute">⏱ ${m.minute}'</span>${badges}</div>
+          </div>
+          <div class="score">${m.home_score} — ${m.away_score}</div>
+        </div>
+        <div class="match-detail" id="detail-${m.match_id}">
+          <div id="detail-content-${m.match_id}" style="color:var(--text2)">Clique para expandir</div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function loadDetail(matchId) {
+  const el = document.getElementById(`detail-${matchId}`);
+  const content = document.getElementById(`detail-content-${matchId}`);
+  el.classList.toggle('open');
+  if (!el.classList.contains('open')) return;
+
+  const r = await fetch(`/api/matches/live/${matchId}`);
+  const d = await r.json();
+  if (d.error) { content.innerHTML = '<p style="color:var(--red)">Erro ao carregar</p>'; return; }
+
+  const alertsHtml = d.alerts?.map(a =>
+    `<div class="alert-mini"><strong>${a.rule_code}</strong> — ${a.title}</div>`
+  ).join('') || '<p style="color:var(--text2);font-size:12px">Sem alertas</p>';
+
+  content.innerHTML = `
+    <div style="font-size:12px;color:var(--text2);margin-bottom:8px">Regras ativadas nesta partida:</div>
+    <div class="alerts-mini">${alertsHtml}</div>
+  `;
+}
+
+loadMatches();
+setInterval(loadMatches, 15000);
+</script>
+</body>
+</html>

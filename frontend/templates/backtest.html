@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Backtest — Football Scanner AI</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:14px;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:20px;align-items:center;}
+nav .logo{color:var(--green);font-weight:bold;font-size:16px;margin-right:20px;}
+nav a{color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:4px;}
+nav a:hover,nav a.active{background:var(--bg3);color:var(--text);}
+.container{padding:20px;max-width:1200px;margin:0 auto;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:20px;margin-bottom:16px;}
+.btn{padding:8px 20px;border-radius:4px;border:none;cursor:pointer;font-size:13px;font-weight:bold;background:var(--green);color:#000;}
+.btn:hover{opacity:0.9;}
+.btn:disabled{background:var(--bg3);color:var(--text2);cursor:not-allowed;}
+input[type=number]{background:var(--bg3);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:4px;width:80px;font-size:13px;}
+table{width:100%;border-collapse:collapse;}
+th{color:var(--text2);font-size:11px;text-transform:uppercase;padding:8px;text-align:left;border-bottom:1px solid var(--border);}
+td{padding:10px 8px;border-bottom:1px solid var(--border);}
+.rate-bar{height:8px;background:var(--bg3);border-radius:4px;overflow:hidden;}
+.rate-fill{height:100%;background:var(--green);border-radius:4px;}
+.disclaimer{background:#3a2d00;border:1px solid var(--yellow);border-radius:6px;padding:12px;font-size:12px;color:var(--yellow);margin-bottom:16px;}
+h2{font-size:18px;margin-bottom:16px;}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/">Dashboard</a><a href="/matches">Partidas</a>
+  <a href="/rules">Regras</a><a href="/stats">Estatísticas</a>
+  <a href="/backtest" class="active">Backtest</a><a href="/config">Configurações</a>
+</nav>
+<div class="container">
+  <h2 style="margin-top:16px">📊 Módulo de Backtest</h2>
+
+  <div class="disclaimer">
+    ⚠️ <strong>Importante:</strong> O backtest apresenta hipóteses estatísticas com base em dados históricos.
+    As taxas de ocorrência indicam padrões observados — não garantias de resultado futuro.
+    Nenhuma regra representa uma certeza.
+  </div>
+
+  <div class="card">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+      <label>Partidas a analisar:</label>
+      <input type="number" id="limit" value="50" min="10" max="500">
+      <button class="btn" onclick="runBacktest()" id="run-btn">▶ Executar Backtest</button>
+    </div>
+    <div id="backtest-status" style="color:var(--text2);font-size:13px"></div>
+  </div>
+
+  <div id="backtest-results"></div>
+</div>
+
+<script>
+async function runBacktest() {
+  const btn = document.getElementById('run-btn');
+  const limit = document.getElementById('limit').value;
+  btn.disabled = true;
+  btn.textContent = '⏳ Executando...';
+  document.getElementById('backtest-status').textContent = 'Processando...';
+  document.getElementById('backtest-results').innerHTML = '';
+
+  try {
+    const r = await fetch(`/api/backtest/run?limit=${limit}`, {method:'POST'});
+    const d = await r.json();
+    renderResults(d);
+    document.getElementById('backtest-status').textContent =
+      `Executado em ${new Date(d.backtest_run_at).toLocaleString('pt-BR')} · ${d.matches_analyzed} partidas analisadas`;
+  } catch(e) {
+    document.getElementById('backtest-status').textContent = 'Erro ao executar backtest';
+  }
+
+  btn.disabled = false;
+  btn.textContent = '▶ Executar Backtest';
+}
+
+function renderResults(data) {
+  const container = document.getElementById('backtest-results');
+  container.innerHTML = data.rules.map(rule => {
+    const rate = rule.occurrence_rate_pct;
+    const rateColor = rate >= 60 ? '#3fb950' : rate >= 30 ? '#d29922' : '#f85149';
+
+    const topLeagues = rule.top_leagues.map(l =>
+      `<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid var(--border)">
+        <span>${l.league}</span><span style="color:var(--blue)">${l.occurrences}x</span>
+      </div>`
+    ).join('') || '<p style="color:var(--text2);font-size:12px">N/A</p>';
+
+    return `
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+          <div>
+            <span style="color:var(--green);font-family:monospace;font-weight:bold">${rule.rule_code}</span>
+            <strong style="font-size:15px;margin-left:8px">${rule.rule_name}</strong>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:24px;font-weight:bold;color:${rateColor}">${rate}%</div>
+            <div style="font-size:11px;color:var(--text2)">${rule.occurrences} / ${rule.sample_size} partidas</div>
+          </div>
+        </div>
+        <div class="rate-bar" style="margin-bottom:16px">
+          <div class="rate-fill" style="width:${Math.min(rate,100)}%;background:${rateColor}"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+          <div>
+            <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px">Melhores Ligas</div>
+            ${topLeagues}
+          </div>
+          <div>
+            <div style="font-size:11px;color:var(--text2);text-transform:uppercase;margin-bottom:6px">Info</div>
+            <div style="font-size:12px;color:var(--text2)">
+              Ocorrências: <strong style="color:var(--text)">${rule.occurrences}</strong><br>
+              Amostra: <strong style="color:var(--text)">${rule.sample_size}</strong><br>
+              Categoria: <strong style="color:var(--text)">${rule.category}</strong>
+            </div>
+            <div style="margin-top:8px;font-size:11px;color:var(--yellow)">${rule.note}</div>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+</script>
+</body>
+</html>

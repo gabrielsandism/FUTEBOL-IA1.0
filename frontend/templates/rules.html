@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Regras — Football Scanner AI</title>
+<style>
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--green:#3fb950;--yellow:#d29922;--red:#f85149;--blue:#58a6ff;--purple:#bc8cff;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Segoe UI',monospace;font-size:14px;}
+nav{background:var(--bg2);border-bottom:1px solid var(--border);padding:10px 20px;display:flex;gap:20px;align-items:center;}
+nav .logo{color:var(--green);font-weight:bold;font-size:16px;margin-right:20px;}
+nav a{color:var(--text2);text-decoration:none;padding:5px 10px;border-radius:4px;}
+nav a:hover,nav a.active{background:var(--bg3);color:var(--text);}
+.container{padding:20px;max-width:1200px;margin:0 auto;}
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:20px;margin-bottom:16px;}
+.rule-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;}
+.rule-code{font-family:monospace;color:var(--green);font-weight:bold;font-size:13px;}
+.rule-name{font-size:16px;font-weight:bold;margin:4px 0;}
+.rule-cat{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;}
+.rule-desc{color:var(--text2);font-size:13px;line-height:1.5;margin:10px 0;}
+.params-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin-top:10px;}
+.param-item{background:var(--bg3);padding:8px;border-radius:4px;font-size:12px;}
+.param-key{color:var(--text2);}
+.param-val{color:var(--blue);font-family:monospace;}
+.toggle-btn{padding:6px 16px;border-radius:4px;border:none;cursor:pointer;font-size:12px;font-weight:bold;}
+.active{background:#1a3a1a;color:var(--green);}
+.inactive{background:#3a1010;color:var(--red);}
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;}
+.badge-cards{background:#3a2d00;color:var(--yellow);}
+.badge-corners{background:#0d2040;color:var(--blue);}
+.badge-reversal{background:#3a1010;color:var(--red);}
+.badge-two_legged{background:#2a1a3a;color:var(--purple);}
+.priority-star{color:var(--yellow);font-size:12px;}
+h2{font-size:18px;margin-bottom:16px;color:var(--text);}
+</style>
+</head>
+<body>
+<nav>
+  <span class="logo">⚽ Football Scanner AI</span>
+  <a href="/">Dashboard</a><a href="/matches">Partidas</a>
+  <a href="/rules" class="active">Regras</a>
+  <a href="/stats">Estatísticas</a><a href="/backtest">Backtest</a><a href="/config">Configurações</a>
+</nav>
+<div class="container">
+  <h2 style="margin-top:16px">⚙️ Gerenciamento de Regras</h2>
+  <div id="rules-container"><p style="color:var(--text2)">Carregando...</p></div>
+</div>
+
+<script>
+const CAT_LABELS = {cards:'Cartões',corners:'Escanteios',reversal:'Virada',two_legged:'Ida e Volta',goals:'Gols',general:'Geral'};
+
+async function loadRules() {
+  const r = await fetch('/api/rules/');
+  const d = await r.json();
+  const container = document.getElementById('rules-container');
+  container.innerHTML = d.rules.map(rule => {
+    const params = Object.entries(rule.parameters || {}).map(([k, v]) =>
+      `<div class="param-item"><span class="param-key">${k}:</span> <span class="param-val">${v}</span></div>`
+    ).join('');
+    const stars = '★'.repeat(Math.round(rule.priority / 2)) + '☆'.repeat(5 - Math.round(rule.priority / 2));
+    const catCls = rule.category.value || rule.category;
+    return `
+      <div class="card">
+        <div class="rule-header">
+          <div>
+            <span class="rule-code">${rule.rule_code}</span>
+            <span class="badge badge-${catCls}" style="margin-left:8px">${CAT_LABELS[catCls] || catCls}</span>
+            <div class="rule-name">${rule.name}</div>
+            <div class="rule-cat">Prioridade: <span class="priority-star">${stars}</span> (${rule.priority}/10) · v${rule.version}</div>
+          </div>
+          <button class="toggle-btn ${rule.is_active ? 'active' : 'inactive'}"
+            onclick="toggleRule('${rule.rule_code}', ${rule.is_active})">
+            ${rule.is_active ? '✅ Ativa' : '❌ Inativa'}
+          </button>
+        </div>
+        <div class="rule-desc">${rule.description}</div>
+        ${params ? `<div style="margin-top:8px;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Parâmetros</div><div class="params-grid">${params}</div>` : ''}
+      </div>`;
+  }).join('');
+}
+
+async function toggleRule(code, currentActive) {
+  await fetch(`/api/rules/${code}`, {
+    method: 'PATCH',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({is_active: !currentActive})
+  });
+  loadRules();
+}
+
+loadRules();
+</script>
+</body>
+</html>
